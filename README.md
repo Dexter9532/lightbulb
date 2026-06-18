@@ -4,7 +4,7 @@ Lightbulb is a focused mobile app for people who have a lot of ideas and do not 
 
 The point of the app is simple: capture an idea while it is fresh, shape it with a bit more structure, and then move it into a real project when it feels worth building. Instead of forcing everything into a rigid system too early, Lightbulb gives ideas room to grow first.
 
-Inside the app, you can create ideas, write brainstorm notes, attach components, and organize segments with descriptions, links, and references. When an idea starts becoming real, you can drag it into a project on the dashboard, move things around freely, archive what you are not using, and keep building without clutter.
+Inside the app, you can create ideas, keep short notes, and move them into projects when they feel real enough to pursue. The app is deliberately simple, so the focus stays on capturing ideas, reading them easily, and deciding what deserves to become a project.
 
 Nothing extra is included beyond that scope.
 
@@ -50,3 +50,8 @@ To install it:
 
 - The current release workflow produces a debug APK.
 - App data is stored locally on the device.
+- The app can check GitHub releases and open the selected APK update from inside Settings.
+
+## License
+
+This project is licensed under **GPL-2.0**.

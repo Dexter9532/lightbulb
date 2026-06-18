@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode, type TouchEvent } from 'react'
-import { ArrowLeft, FolderKanban, Home, Lightbulb, MoveRight, Settings, Trash2 } from 'lucide-react'
+import { ArrowLeft, FolderKanban, Home, Lightbulb, MoveRight, RefreshCw, Settings, Trash2 } from 'lucide-react'
 import './App.css'
 
 type Page = 'home' | 'ideas' | 'projects' | 'settings'
@@ -17,6 +17,15 @@ type AppState = {
   projects: Idea[]
 }
 
+type ReleaseOption = {
+  tag: string
+  name: string
+  apkUrl: string
+}
+
+const APP_VERSION = '0.2.0'
+const REPO_OWNER = 'Dexter9532'
+const REPO_NAME = 'lightbulb'
 const APP_STORAGE_KEY = 'lightbulb-simple-v2'
 const THEME_STORAGE_KEY = 'lightbulb-theme-v1'
 const SWIPE_THRESHOLD = 90
@@ -51,6 +60,10 @@ function App() {
   })
   const [ideaTitle, setIdeaTitle] = useState('')
   const [ideaNote, setIdeaNote] = useState('')
+  const [releases, setReleases] = useState<ReleaseOption[]>([])
+  const [selectedTag, setSelectedTag] = useState('')
+  const [releaseStatus, setReleaseStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
+  const [releaseMessage, setReleaseMessage] = useState('')
 
   useEffect(() => {
     localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state))
@@ -61,10 +74,62 @@ function App() {
     document.documentElement.dataset.theme = themeMode
   }, [themeMode])
 
+  useEffect(() => {
+    void loadReleases()
+  }, [])
+
   const counts = useMemo(
     () => ({ ideas: state.ideas.length, projects: state.projects.length }),
     [state.ideas.length, state.projects.length],
   )
+
+  const selectedRelease = releases.find((release) => release.tag === selectedTag) ?? null
+  const latestRelease = releases[0] ?? null
+
+  async function loadReleases() {
+    setReleaseStatus('loading')
+    setReleaseMessage('')
+
+    try {
+      const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases`)
+      if (!response.ok) {
+        throw new Error(`GitHub returned ${response.status}`)
+      }
+
+      const data = (await response.json()) as Array<{
+        tag_name: string
+        name: string | null
+        draft: boolean
+        prerelease: boolean
+        assets: Array<{ name: string; browser_download_url: string }>
+      }>
+
+      const nextReleases = data
+        .filter((release) => !release.draft && !release.prerelease)
+        .map((release) => {
+          const apkAsset = release.assets.find((asset) => asset.name.endsWith('.apk'))
+          if (!apkAsset) return null
+
+          return {
+            tag: release.tag_name,
+            name: release.name || release.tag_name,
+            apkUrl: apkAsset.browser_download_url,
+          } satisfies ReleaseOption
+        })
+        .filter((release): release is ReleaseOption => release !== null)
+
+      setReleases(nextReleases)
+      setSelectedTag((current) => current || nextReleases[0]?.tag || '')
+      setReleaseStatus('ready')
+
+      if (nextReleases.length === 0) {
+        setReleaseMessage('No APK releases found yet.')
+      }
+    } catch {
+      setReleaseStatus('error')
+      setReleaseMessage('Could not load releases right now.')
+    }
+  }
 
   const createIdea = () => {
     if (!ideaTitle.trim()) return
@@ -106,10 +171,15 @@ function App() {
     })
   }
 
+  const runUpdate = () => {
+    if (!selectedRelease) return
+    window.open(selectedRelease.apkUrl, '_blank', 'noopener,noreferrer')
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button type="button" className="icon-button" onClick={() => setPage(page === 'home' ? 'home' : 'home')}>
+        <button type="button" className="icon-button" onClick={() => setPage('home')}>
           {page === 'home' ? <Lightbulb size={20} /> : <ArrowLeft size={20} />}
         </button>
         <div className="topbar-copy">
@@ -188,6 +258,42 @@ function App() {
               <ThemeButton label="Red and white" value="red-white" selected={themeMode === 'red-white'} onSelect={setThemeMode} />
               <ThemeButton label="Red and black" value="red-black" selected={themeMode === 'red-black'} onSelect={setThemeMode} />
             </div>
+          </article>
+
+          <article className="panel settings-panel">
+            <div className="section-copy compact">
+              <h2>App update</h2>
+              <p>Current version: {APP_VERSION}</p>
+            </div>
+
+            <div className="update-row">
+              <select value={selectedTag} onChange={(event) => setSelectedTag(event.target.value)} disabled={releases.length === 0}>
+                {releases.length === 0 ? <option value="">No releases</option> : null}
+                {releases.map((release) => (
+                  <option key={release.tag} value={release.tag}>
+                    {release.tag}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="small-button" onClick={runUpdate} disabled={!selectedRelease}>
+                Update
+              </button>
+            </div>
+
+            <div className="update-meta-row">
+              <button type="button" className="tiny-button" onClick={() => void loadReleases()}>
+                <RefreshCw size={14} />
+                Refresh
+              </button>
+              <span>
+                Latest: {latestRelease?.tag ?? 'none'}
+              </span>
+            </div>
+
+            {selectedRelease ? <p className="helper-text">Selected release: {selectedRelease.name}</p> : null}
+            {releaseStatus === 'loading' ? <p className="helper-text">Loading releases...</p> : null}
+            {releaseMessage ? <p className="helper-text">{releaseMessage}</p> : null}
+            <p className="helper-text">Pressing update downloads the APK from the selected GitHub release tag.</p>
           </article>
         </section>
       ) : null}

@@ -48,7 +48,9 @@
 .nav-button,
 .home-box,
 .primary-button,
-.theme-button {
+.theme-button,
+.small-button,
+.tiny-button {
   border: 0;
   cursor: pointer;
   font: inherit;
@@ -134,7 +136,9 @@
 
 .section-copy p,
 .idea-copy p,
-.empty-panel {
+.empty-panel,
+.helper-text,
+.update-meta-row span {
   color: var(--muted);
 }
 
@@ -143,7 +147,8 @@
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--border);
@@ -161,7 +166,8 @@ textarea::placeholder {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: 2px solid var(--focus);
   border-color: var(--accent);
 }
@@ -277,6 +283,52 @@ textarea:focus {
   background: var(--selected);
 }
 
+.update-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.small-button {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 14px;
+  background: var(--soft);
+  color: var(--text-strong);
+  border: 1px solid var(--border);
+}
+
+.small-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.update-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.tiny-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--text-strong);
+  border: 1px solid var(--border);
+}
+
+.helper-text {
+  margin: 10px 0 0;
+  font-size: 0.92rem;
+}
+
 .bottom-nav {
   position: fixed;
   left: 16px;
@@ -315,7 +367,9 @@ textarea:focus {
   .nav-button:hover,
   .home-box:hover,
   .primary-button:hover,
-  .theme-button:hover {
+  .theme-button:hover,
+  .small-button:hover,
+  .tiny-button:hover {
     transform: translateY(-1px);
   }
 }
@@ -341,5 +395,14 @@ textarea:focus {
   .idea-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .update-row {
+    grid-template-columns: 1fr;
+  }
+
+  .update-meta-row {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }
