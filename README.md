@@ -1,18 +1,9 @@
 # Lightbulb
 
-Lightbulb is a focused mobile app for people who have a lot of ideas and do not want them to disappear into random notes, half-finished chats, or scattered documents.
-
-The point of the app is simple: capture an idea while it is fresh, shape it with a bit more structure, and then move it into a real project when it feels worth building. Instead of forcing everything into a rigid system too early, Lightbulb gives ideas room to grow first.
-
-Inside the app, you can create ideas, keep short notes, and move them into projects when they feel real enough to pursue. The app is deliberately simple, so the focus stays on capturing ideas, reading them easily, and deciding what deserves to become a project.
-
-Nothing extra is included beyond that scope.
-
-## Stack
-
-- React + TypeScript
-- Capacitor Android shell
-- Local device storage for persistence
+Feel like you have a lot of ideas, but you never manage to make them real?
+Use Lightbulb and you will start turning loose thoughts into actual projects.
+It gives you a simple place to catch ideas fast, read them clearly, and move the good ones forward.
+No clutter, no extra noise, just a clean path from idea to project.
 
 ## Run locally
 
@@ -51,6 +42,7 @@ To install it:
 - The current release workflow produces a debug APK.
 - App data is stored locally on the device.
 - The app can check GitHub releases and open the selected APK update from inside Settings.
+- This app is vibe coded.
 
 ## License
 
