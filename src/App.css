@@ -24,8 +24,7 @@
 .topbar-copy p,
 .section-copy h2,
 .section-copy p,
-.idea-copy h3,
-.idea-copy p {
+.image-card-footer span {
   margin: 0;
 }
 
@@ -49,7 +48,7 @@
 .theme-button,
 .small-button,
 .tiny-button,
-.idea-card-simple {
+.card-action-button {
   border: 0;
   cursor: pointer;
   font: inherit;
@@ -127,11 +126,9 @@
 }
 
 .section-copy p,
-.idea-copy p,
 .empty-panel,
 .helper-text,
 .update-meta-row span,
-.idea-meta span,
 .image-card-footer span {
   color: var(--muted);
 }
@@ -181,69 +178,75 @@ select:focus {
   gap: 14px;
 }
 
-.swipe-shell {
-  position: relative;
-}
-
-.swipe-hint {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: white;
-  border-radius: 28px;
-  padding: 0 18px;
-  pointer-events: none;
-}
-
-.swipe-left {
-  justify-content: flex-start;
-  background: var(--danger);
-  gap: 8px;
-}
-
-.swipe-right {
-  justify-content: flex-end;
-  background: var(--accent);
-  color: var(--accent-contrast);
-  gap: 8px;
-}
-
-.idea-card-simple {
-  position: relative;
-  z-index: 1;
-  width: 100%;
+.idea-card-plain {
+  border-radius: 26px;
   padding: 18px;
+  box-shadow: var(--shadow);
+}
+
+.idea-card-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  touch-action: pan-y;
-  background: var(--panel);
-  text-align: left;
+  gap: 12px;
 }
 
-.idea-copy {
-  min-width: 0;
+.idea-card-top h3 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.02rem;
 }
 
-.idea-copy h3 {
-  font-size: 1rem;
-  margin-bottom: 6px;
+.rating-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 60px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.45);
   color: var(--text-strong);
 }
 
-.idea-copy p {
-  overflow-wrap: anywhere;
+.idea-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
 }
 
-.idea-meta {
-  display: flex;
-  gap: 12px;
-  margin-top: 10px;
-  font-size: 0.86rem;
+.card-action-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.45);
+  color: var(--text-strong);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.danger-text,
+.ghost-action.danger,
+.danger-button {
+  color: var(--danger);
+}
+
+.rating-bad {
+  background: linear-gradient(135deg, #ffb3b3, #f56a6a);
+}
+
+.rating-mid {
+  background: linear-gradient(135deg, #ffd4a3, #ff9f43);
+}
+
+.rating-good {
+  background: linear-gradient(135deg, #ffe58f, #ffd43b);
+}
+
+.rating-great {
+  background: linear-gradient(135deg, #b7f0ad, #58c66b);
 }
 
 .detail-stack {
@@ -256,6 +259,12 @@ select:focus {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 12px;
+}
+
+.rating-detail-row {
+  display: flex;
+  justify-content: flex-start;
+  margin: 8px 0 2px;
 }
 
 .element-card,
@@ -322,11 +331,6 @@ select:focus {
   place-items: center;
   background: var(--panel);
   color: var(--text-strong);
-}
-
-.ghost-action.danger,
-.danger-button {
-  color: var(--danger);
 }
 
 .theme-options {
@@ -441,7 +445,7 @@ select:focus {
   .theme-button:hover,
   .small-button:hover,
   .tiny-button:hover,
-  .idea-card-simple:hover {
+  .card-action-button:hover {
     transform: translateY(-1px);
   }
 }
@@ -458,15 +462,14 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
-  .idea-card-simple,
+  .idea-card-top,
   .detail-header-row,
   .update-meta-row {
     align-items: flex-start;
     flex-direction: column;
   }
 
-  .idea-meta {
+  .idea-card-actions {
     flex-direction: column;
-    gap: 4px;
   }
 }

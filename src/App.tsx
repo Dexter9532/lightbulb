@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react'
-import { ArrowLeft, FolderKanban, Home, ImagePlus, Lightbulb, MoveRight, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { ArrowLeft, FolderKanban, Home, ImagePlus, Lightbulb, MoveLeft, MoveRight, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react'
 import { APP_VERSION } from './version'
 import './App.css'
 
@@ -23,6 +23,7 @@ type Idea = {
   id: string
   title: string
   summary: string
+  rating: number
   notes: string
   elements: IdeaElement[]
   images: IdeaImage[]
@@ -43,9 +44,8 @@ type ReleaseOption = {
 
 const REPO_OWNER = 'Dexter9532'
 const REPO_NAME = 'lightbulb'
-const APP_STORAGE_KEY = 'lightbulb-simple-v3'
+const APP_STORAGE_KEY = 'lightbulb-simple-v4'
 const THEME_STORAGE_KEY = 'lightbulb-theme-v1'
-const SWIPE_THRESHOLD = 90
 
 const newId = () => {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
@@ -64,12 +64,26 @@ const createIdeaRecord = (title: string, summary: string): Idea => ({
   id: newId(),
   title: title.trim(),
   summary: summary.trim(),
+  rating: 5,
   notes: '',
   elements: [],
   images: [],
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 })
+
+const sortIdeasByRating = (ideas: Idea[]) =>
+  [...ideas].sort((a, b) => {
+    if (b.rating !== a.rating) return b.rating - a.rating
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  })
+
+const getRatingTone = (rating: number) => {
+  if (rating <= 3) return 'rating-bad'
+  if (rating <= 5) return 'rating-mid'
+  if (rating <= 7) return 'rating-good'
+  return 'rating-great'
+}
 
 function App() {
   const [page, setPage] = useState<Page>('home')
@@ -167,7 +181,7 @@ function App() {
     const idea = createIdeaRecord(ideaTitle, ideaSummary)
     setState((current) => ({
       ...current,
-      ideas: [idea, ...current.ideas],
+      ideas: sortIdeasByRating([idea, ...current.ideas]),
     }))
     setIdeaTitle('')
     setIdeaSummary('')
@@ -176,8 +190,10 @@ function App() {
   const updateIdea = (kind: IdeaListKind, ideaId: string, updater: (idea: Idea) => Idea) => {
     setState((current) => ({
       ...current,
-      [kind]: current[kind].map((idea) =>
-        idea.id === ideaId ? { ...updater(idea), updatedAt: new Date().toISOString() } : idea,
+      [kind]: sortIdeasByRating(
+        current[kind].map((idea) =>
+          idea.id === ideaId ? { ...updater(idea), updatedAt: new Date().toISOString() } : idea,
+        ),
       ),
     }))
   }
@@ -201,7 +217,7 @@ function App() {
       return {
         ...current,
         [from]: current[from].filter((idea) => idea.id !== ideaId),
-        [to]: [{ ...item, updatedAt: new Date().toISOString() }, ...current[to]],
+        [to]: sortIdeasByRating([{ ...item, updatedAt: new Date().toISOString() }, ...current[to]]),
       }
     })
 
@@ -285,15 +301,16 @@ function App() {
           <section className="page-stack">
             <div className="section-copy compact">
               <h2>Ideas</h2>
-              <p>Tap an idea to open it. Swipe left to delete, swipe right to move it to projects.</p>
+              <p>Highest-rated ideas stay at the top.</p>
             </div>
             <IdeaBoard
               items={state.ideas}
               emptyText="No ideas yet. Add one above."
               onOpen={(ideaId) => setDetailTarget({ kind: 'ideas', id: ideaId })}
               onDelete={(ideaId) => deleteIdea('ideas', ideaId)}
-              onMoveRight={(ideaId) => moveIdea('ideas', 'projects', ideaId)}
-              moveRightLabel="Move to projects"
+              onMove={(ideaId) => moveIdea('ideas', 'projects', ideaId)}
+              moveLabel="Move to projects"
+              moveIcon={<MoveRight size={14} />}
             />
           </section>
         </section>
@@ -303,15 +320,16 @@ function App() {
         <section className="page-stack">
           <div className="section-copy compact">
             <h2>Projects</h2>
-            <p>Tap an item to open it. Swipe left to delete, swipe right to move it back to ideas.</p>
+            <p>Best-rated ideas stay at the top here too.</p>
           </div>
           <IdeaBoard
             items={state.projects}
             emptyText="No project ideas yet. Move some over from Ideas."
             onOpen={(ideaId) => setDetailTarget({ kind: 'projects', id: ideaId })}
             onDelete={(ideaId) => deleteIdea('projects', ideaId)}
-            onMoveRight={(ideaId) => moveIdea('projects', 'ideas', ideaId)}
-            moveRightLabel="Move back to ideas"
+            onMove={(ideaId) => moveIdea('projects', 'ideas', ideaId)}
+            moveLabel="Move back to ideas"
+            moveIcon={<MoveLeft size={14} />}
           />
         </section>
       ) : null}
@@ -413,15 +431,17 @@ function IdeaBoard({
   emptyText,
   onOpen,
   onDelete,
-  onMoveRight,
-  moveRightLabel,
+  onMove,
+  moveLabel,
+  moveIcon,
 }: {
   items: Idea[]
   emptyText: string
   onOpen: (ideaId: string) => void
   onDelete: (ideaId: string) => void
-  onMoveRight: (ideaId: string) => void
-  moveRightLabel: string
+  onMove: (ideaId: string) => void
+  moveLabel: string
+  moveIcon: ReactNode
 }) {
   if (items.length === 0) {
     return <article className="panel empty-panel">{emptyText}</article>
@@ -429,85 +449,56 @@ function IdeaBoard({
 
   return (
     <div className="idea-list">
-      {items.map((idea) => (
-        <SwipeIdeaCard
+      {sortIdeasByRating(items).map((idea) => (
+        <IdeaCard
           key={idea.id}
           idea={idea}
           onOpen={() => onOpen(idea.id)}
           onDelete={() => onDelete(idea.id)}
-          onMoveRight={() => onMoveRight(idea.id)}
-          moveRightLabel={moveRightLabel}
+          onMove={() => onMove(idea.id)}
+          moveLabel={moveLabel}
+          moveIcon={moveIcon}
         />
       ))}
     </div>
   )
 }
 
-function SwipeIdeaCard({
+function IdeaCard({
   idea,
   onOpen,
   onDelete,
-  onMoveRight,
-  moveRightLabel,
+  onMove,
+  moveLabel,
+  moveIcon,
 }: {
   idea: Idea
   onOpen: () => void
   onDelete: () => void
-  onMoveRight: () => void
-  moveRightLabel: string
+  onMove: () => void
+  moveLabel: string
+  moveIcon: ReactNode
 }) {
-  const [startX, setStartX] = useState<number | null>(null)
-  const [deltaX, setDeltaX] = useState(0)
-
-  const handleTouchStart = (event: TouchEvent<HTMLButtonElement>) => {
-    setStartX(event.changedTouches[0].clientX)
-  }
-
-  const handleTouchMove = (event: TouchEvent<HTMLButtonElement>) => {
-    if (startX === null) return
-    setDeltaX(event.changedTouches[0].clientX - startX)
-  }
-
-  const handleTouchEnd = () => {
-    if (deltaX <= -SWIPE_THRESHOLD) {
-      onDelete()
-    } else if (deltaX >= SWIPE_THRESHOLD) {
-      onMoveRight()
-    }
-
-    setStartX(null)
-    setDeltaX(0)
-  }
-
   return (
-    <div className="swipe-shell">
-      <div className="swipe-hint swipe-left">
-        <Trash2 size={16} />
-        <span>Delete</span>
+    <article className={`idea-card-plain ${getRatingTone(idea.rating)}`}>
+      <div className="idea-card-top">
+        <h3>{idea.title}</h3>
+        <span className="rating-pill">{idea.rating}/10</span>
       </div>
-      <div className="swipe-hint swipe-right">
-        <MoveRight size={16} />
-        <span>{moveRightLabel}</span>
+
+      <div className="idea-card-actions">
+        <button type="button" className="card-action-button" onClick={onOpen}>
+          Edit
+        </button>
+        <button type="button" className="card-action-button" onClick={onMove}>
+          {moveIcon}
+          {moveLabel}
+        </button>
+        <button type="button" className="card-action-button danger-text" onClick={onDelete}>
+          Discard
+        </button>
       </div>
-      <button
-        type="button"
-        className="panel idea-card-simple"
-        style={{ transform: `translateX(${Math.max(-120, Math.min(120, deltaX))}px)` }}
-        onClick={onOpen}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-      >
-        <div className="idea-copy">
-          <h3>{idea.title}</h3>
-          <p>{idea.summary || 'Open to add more details.'}</p>
-          <div className="idea-meta">
-            <span>{idea.elements.length} elements</span>
-            <span>{idea.images.length} images</span>
-          </div>
-        </div>
-      </button>
-    </div>
+    </article>
   )
 }
 
@@ -568,6 +559,22 @@ function IdeaDetailPage({
           <h2>Idea name</h2>
         </div>
         <input value={idea.title} onChange={(event) => onUpdate((current) => ({ ...current, title: event.target.value }))} />
+
+        <div className="section-copy compact">
+          <h2>Rating</h2>
+          <p>Rate this idea from 1 to 10.</p>
+        </div>
+        <input
+          type="range"
+          min="1"
+          max="10"
+          step="1"
+          value={idea.rating}
+          onChange={(event) => onUpdate((current) => ({ ...current, rating: Number(event.target.value) }))}
+        />
+        <div className="rating-detail-row">
+          <span className={`rating-pill ${getRatingTone(idea.rating)}`}>{idea.rating}/10</span>
+        </div>
 
         <div className="section-copy compact">
           <h2>Short summary</h2>
@@ -698,7 +705,7 @@ function IdeaDetailPage({
           {kind === 'ideas' ? 'Move to projects' : 'Move back to ideas'}
         </button>
         <button type="button" className="small-button danger-button" onClick={onDelete}>
-          Delete idea
+          Discard idea
         </button>
       </article>
     </section>
