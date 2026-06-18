@@ -23,7 +23,7 @@ type ReleaseOption = {
   apkUrl: string
 }
 
-const APP_VERSION = '0.2.0'
+const APP_VERSION = '0.2.1'
 const REPO_OWNER = 'Dexter9532'
 const REPO_NAME = 'lightbulb'
 const APP_STORAGE_KEY = 'lightbulb-simple-v2'
