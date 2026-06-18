@@ -1,15 +1,33 @@
-import { useEffect, useMemo, useState, type ReactNode, type TouchEvent } from 'react'
-import { ArrowLeft, FolderKanban, Home, Lightbulb, MoveRight, RefreshCw, Settings, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type TouchEvent } from 'react'
+import { ArrowLeft, FolderKanban, Home, ImagePlus, Lightbulb, MoveRight, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react'
+import { APP_VERSION } from './version'
 import './App.css'
 
-type Page = 'home' | 'ideas' | 'projects' | 'settings'
 type ThemeMode = 'system' | 'red-white' | 'red-black'
+type Page = 'home' | 'ideas' | 'projects' | 'settings'
+type IdeaListKind = 'ideas' | 'projects'
+
+type IdeaElement = {
+  id: string
+  title: string
+  note: string
+}
+
+type IdeaImage = {
+  id: string
+  name: string
+  dataUrl: string
+}
 
 type Idea = {
   id: string
   title: string
-  note: string
+  summary: string
+  notes: string
+  elements: IdeaElement[]
+  images: IdeaImage[]
   createdAt: string
+  updatedAt: string
 }
 
 type AppState = {
@@ -23,10 +41,9 @@ type ReleaseOption = {
   apkUrl: string
 }
 
-const APP_VERSION = '0.2.1'
 const REPO_OWNER = 'Dexter9532'
 const REPO_NAME = 'lightbulb'
-const APP_STORAGE_KEY = 'lightbulb-simple-v2'
+const APP_STORAGE_KEY = 'lightbulb-simple-v3'
 const THEME_STORAGE_KEY = 'lightbulb-theme-v1'
 const SWIPE_THRESHOLD = 90
 
@@ -41,6 +58,17 @@ const newId = () => {
 const emptyState = (): AppState => ({
   ideas: [],
   projects: [],
+})
+
+const createIdeaRecord = (title: string, summary: string): Idea => ({
+  id: newId(),
+  title: title.trim(),
+  summary: summary.trim(),
+  notes: '',
+  elements: [],
+  images: [],
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
 })
 
 function App() {
@@ -59,7 +87,8 @@ function App() {
     }
   })
   const [ideaTitle, setIdeaTitle] = useState('')
-  const [ideaNote, setIdeaNote] = useState('')
+  const [ideaSummary, setIdeaSummary] = useState('')
+  const [detailTarget, setDetailTarget] = useState<{ kind: IdeaListKind; id: string } | null>(null)
   const [releases, setReleases] = useState<ReleaseOption[]>([])
   const [selectedTag, setSelectedTag] = useState('')
   const [releaseStatus, setReleaseStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
@@ -85,6 +114,7 @@ function App() {
 
   const selectedRelease = releases.find((release) => release.tag === selectedTag) ?? null
   const latestRelease = releases[0] ?? null
+  const detailIdea = detailTarget ? state[detailTarget.kind].find((idea) => idea.id === detailTarget.id) ?? null : null
 
   async function loadReleases() {
     setReleaseStatus('loading')
@@ -134,29 +164,34 @@ function App() {
   const createIdea = () => {
     if (!ideaTitle.trim()) return
 
-    const idea: Idea = {
-      id: newId(),
-      title: ideaTitle.trim(),
-      note: ideaNote.trim(),
-      createdAt: new Date().toISOString(),
-    }
-
+    const idea = createIdeaRecord(ideaTitle, ideaSummary)
     setState((current) => ({
       ...current,
       ideas: [idea, ...current.ideas],
     }))
     setIdeaTitle('')
-    setIdeaNote('')
+    setIdeaSummary('')
   }
 
-  const deleteIdea = (list: 'ideas' | 'projects', ideaId: string) => {
+  const updateIdea = (kind: IdeaListKind, ideaId: string, updater: (idea: Idea) => Idea) => {
+    setState((current) => ({
+      ...current,
+      [kind]: current[kind].map((idea) =>
+        idea.id === ideaId ? { ...updater(idea), updatedAt: new Date().toISOString() } : idea,
+      ),
+    }))
+  }
+
+  const deleteIdea = (list: IdeaListKind, ideaId: string) => {
     setState((current) => ({
       ...current,
       [list]: current[list].filter((idea) => idea.id !== ideaId),
     }))
+
+    setDetailTarget((current) => (current?.id === ideaId ? null : current))
   }
 
-  const moveIdea = (from: 'ideas' | 'projects', to: 'ideas' | 'projects', ideaId: string) => {
+  const moveIdea = (from: IdeaListKind, to: IdeaListKind, ideaId: string) => {
     if (from === to) return
 
     setState((current) => {
@@ -166,9 +201,11 @@ function App() {
       return {
         ...current,
         [from]: current[from].filter((idea) => idea.id !== ideaId),
-        [to]: [item, ...current[to]],
+        [to]: [{ ...item, updatedAt: new Date().toISOString() }, ...current[to]],
       }
     })
+
+    setDetailTarget({ kind: to, id: ideaId })
   }
 
   const runUpdate = () => {
@@ -176,52 +213,84 @@ function App() {
     window.open(selectedRelease.apkUrl, '_blank', 'noopener,noreferrer')
   }
 
+  const onBack = () => {
+    if (detailTarget) {
+      setDetailTarget(null)
+      return
+    }
+
+    setPage('home')
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="icon-button static-icon">
-          {page === 'home' ? <Lightbulb size={20} /> : <ArrowLeft size={20} />}
-        </div>
+        {page === 'home' && !detailTarget ? (
+          <div className="icon-button static-icon">
+            <Lightbulb size={20} />
+          </div>
+        ) : (
+          <button type="button" className="icon-button" onClick={onBack}>
+            <ArrowLeft size={20} />
+          </button>
+        )}
         <div className="topbar-copy">
           <p className="brand">Lightbulb</p>
-          <h1>{page === 'home' ? 'Make ideas reality' : page[0].toUpperCase() + page.slice(1)}</h1>
+          <h1>
+            {detailTarget && detailIdea
+              ? detailIdea.title
+              : page === 'home'
+                ? 'Make ideas reality'
+                : page[0].toUpperCase() + page.slice(1)}
+          </h1>
         </div>
         <button type="button" className="icon-button" onClick={() => setPage('settings')}>
           <Settings size={20} />
         </button>
       </header>
 
-      {page === 'home' ? (
+      {detailTarget && detailIdea ? (
+        <IdeaDetailPage
+          idea={detailIdea}
+          kind={detailTarget.kind}
+          onUpdate={(updater) => updateIdea(detailTarget.kind, detailTarget.id, updater)}
+          onMove={() => moveIdea(detailTarget.kind, detailTarget.kind === 'ideas' ? 'projects' : 'ideas', detailTarget.id)}
+          onDelete={() => deleteIdea(detailTarget.kind, detailTarget.id)}
+        />
+      ) : null}
+
+      {!detailTarget && page === 'home' ? (
         <HomePage counts={counts} onOpenIdeas={() => setPage('ideas')} onOpenProjects={() => setPage('projects')} />
       ) : null}
 
-      {page === 'ideas' ? (
+      {!detailTarget && page === 'ideas' ? (
         <section className="page-stack">
           <article className="panel composer-panel">
             <div className="section-copy">
               <h2>New idea</h2>
-              <p>Write it fast, clean it up later.</p>
+              <p>Add the name first, then open it and build it out.</p>
             </div>
-            <input value={ideaTitle} onChange={(event) => setIdeaTitle(event.target.value)} placeholder="Idea title" />
+            <input value={ideaTitle} onChange={(event) => setIdeaTitle(event.target.value)} placeholder="Idea name" />
             <textarea
-              value={ideaNote}
-              onChange={(event) => setIdeaNote(event.target.value)}
-              placeholder="Short note or brain dump"
-              rows={4}
+              value={ideaSummary}
+              onChange={(event) => setIdeaSummary(event.target.value)}
+              placeholder="Short summary"
+              rows={3}
             />
             <button type="button" className="primary-button" onClick={createIdea}>
-              Save idea
+              Add idea
             </button>
           </article>
 
           <section className="page-stack">
             <div className="section-copy compact">
               <h2>Ideas</h2>
-              <p>Swipe left to delete, swipe right to move to projects.</p>
+              <p>Tap an idea to open it. Swipe left to delete, swipe right to move it to projects.</p>
             </div>
             <IdeaBoard
               items={state.ideas}
               emptyText="No ideas yet. Add one above."
+              onOpen={(ideaId) => setDetailTarget({ kind: 'ideas', id: ideaId })}
               onDelete={(ideaId) => deleteIdea('ideas', ideaId)}
               onMoveRight={(ideaId) => moveIdea('ideas', 'projects', ideaId)}
               moveRightLabel="Move to projects"
@@ -230,15 +299,16 @@ function App() {
         </section>
       ) : null}
 
-      {page === 'projects' ? (
+      {!detailTarget && page === 'projects' ? (
         <section className="page-stack">
           <div className="section-copy compact">
             <h2>Projects</h2>
-            <p>Your moved ideas live here. Swipe left to delete, swipe right to move back to ideas.</p>
+            <p>Tap an item to open it. Swipe left to delete, swipe right to move it back to ideas.</p>
           </div>
           <IdeaBoard
             items={state.projects}
             emptyText="No project ideas yet. Move some over from Ideas."
+            onOpen={(ideaId) => setDetailTarget({ kind: 'projects', id: ideaId })}
             onDelete={(ideaId) => deleteIdea('projects', ideaId)}
             onMoveRight={(ideaId) => moveIdea('projects', 'ideas', ideaId)}
             moveRightLabel="Move back to ideas"
@@ -246,7 +316,7 @@ function App() {
         </section>
       ) : null}
 
-      {page === 'settings' ? (
+      {!detailTarget && page === 'settings' ? (
         <section className="page-stack">
           <article className="panel settings-panel">
             <div className="section-copy compact">
@@ -285,24 +355,24 @@ function App() {
                 <RefreshCw size={14} />
                 Refresh
               </button>
-              <span>
-                Latest: {latestRelease?.tag ?? 'none'}
-              </span>
+              <span>Latest: {latestRelease?.tag ?? 'none'}</span>
             </div>
 
             {selectedRelease ? <p className="helper-text">Selected release: {selectedRelease.name}</p> : null}
             {releaseStatus === 'loading' ? <p className="helper-text">Loading releases...</p> : null}
             {releaseMessage ? <p className="helper-text">{releaseMessage}</p> : null}
-            <p className="helper-text">Pressing update downloads the APK from the selected GitHub release tag.</p>
+            <p className="helper-text">Updates should keep your app data. Uninstalling the app would remove local data.</p>
           </article>
         </section>
       ) : null}
 
-      <nav className="bottom-nav">
-        <NavButton icon={<Home size={18} />} label="Home" active={page === 'home'} onClick={() => setPage('home')} />
-        <NavButton icon={<Lightbulb size={18} />} label="Ideas" active={page === 'ideas'} onClick={() => setPage('ideas')} />
-        <NavButton icon={<FolderKanban size={18} />} label="Projects" active={page === 'projects'} onClick={() => setPage('projects')} />
-      </nav>
+      {!detailTarget ? (
+        <nav className="bottom-nav">
+          <NavButton icon={<Home size={18} />} label="Home" active={page === 'home'} onClick={() => setPage('home')} />
+          <NavButton icon={<Lightbulb size={18} />} label="Ideas" active={page === 'ideas'} onClick={() => setPage('ideas')} />
+          <NavButton icon={<FolderKanban size={18} />} label="Projects" active={page === 'projects'} onClick={() => setPage('projects')} />
+        </nav>
+      ) : null}
     </div>
   )
 }
@@ -317,10 +387,10 @@ function HomePage({
   onOpenProjects: () => void
 }) {
   return (
-    <section className="page-stack">
-      <article className="hero-card panel">
-        <Lightbulb size={72} strokeWidth={1.8} />
-      </article>
+    <section className="page-stack home-stack">
+      <div className="home-bulb">
+        <Lightbulb size={88} strokeWidth={1.8} />
+      </div>
 
       <div className="home-grid">
         <button type="button" className="home-box panel" onClick={onOpenIdeas}>
@@ -341,12 +411,14 @@ function HomePage({
 function IdeaBoard({
   items,
   emptyText,
+  onOpen,
   onDelete,
   onMoveRight,
   moveRightLabel,
 }: {
   items: Idea[]
   emptyText: string
+  onOpen: (ideaId: string) => void
   onDelete: (ideaId: string) => void
   onMoveRight: (ideaId: string) => void
   moveRightLabel: string
@@ -361,6 +433,7 @@ function IdeaBoard({
         <SwipeIdeaCard
           key={idea.id}
           idea={idea}
+          onOpen={() => onOpen(idea.id)}
           onDelete={() => onDelete(idea.id)}
           onMoveRight={() => onMoveRight(idea.id)}
           moveRightLabel={moveRightLabel}
@@ -372,11 +445,13 @@ function IdeaBoard({
 
 function SwipeIdeaCard({
   idea,
+  onOpen,
   onDelete,
   onMoveRight,
   moveRightLabel,
 }: {
   idea: Idea
+  onOpen: () => void
   onDelete: () => void
   onMoveRight: () => void
   moveRightLabel: string
@@ -384,11 +459,11 @@ function SwipeIdeaCard({
   const [startX, setStartX] = useState<number | null>(null)
   const [deltaX, setDeltaX] = useState(0)
 
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+  const handleTouchStart = (event: TouchEvent<HTMLButtonElement>) => {
     setStartX(event.changedTouches[0].clientX)
   }
 
-  const handleTouchMove = (event: TouchEvent<HTMLDivElement>) => {
+  const handleTouchMove = (event: TouchEvent<HTMLButtonElement>) => {
     if (startX === null) return
     setDeltaX(event.changedTouches[0].clientX - startX)
   }
@@ -414,27 +489,219 @@ function SwipeIdeaCard({
         <MoveRight size={16} />
         <span>{moveRightLabel}</span>
       </div>
-      <article
+      <button
+        type="button"
         className="panel idea-card-simple"
         style={{ transform: `translateX(${Math.max(-120, Math.min(120, deltaX))}px)` }}
+        onClick={onOpen}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
         <div className="idea-copy">
           <h3>{idea.title}</h3>
-          <p>{idea.note || 'No extra note yet.'}</p>
+          <p>{idea.summary || 'Open to add more details.'}</p>
+          <div className="idea-meta">
+            <span>{idea.elements.length} elements</span>
+            <span>{idea.images.length} images</span>
+          </div>
         </div>
-        <div className="idea-actions">
-          <button type="button" className="ghost-action danger" onClick={onDelete}>
-            <Trash2 size={16} />
+      </button>
+    </div>
+  )
+}
+
+function IdeaDetailPage({
+  idea,
+  kind,
+  onUpdate,
+  onMove,
+  onDelete,
+}: {
+  idea: Idea
+  kind: IdeaListKind
+  onUpdate: (updater: (idea: Idea) => Idea) => void
+  onMove: () => void
+  onDelete: () => void
+}) {
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
+
+  const addElement = () => {
+    onUpdate((current) => ({
+      ...current,
+      elements: [...current.elements, { id: newId(), title: '', note: '' }],
+    }))
+  }
+
+  const handleImageFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+
+    const items = await Promise.all(
+      Array.from(files).map(
+        (file) =>
+          new Promise<IdeaImage>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              if (typeof reader.result !== 'string') {
+                reject(new Error('Could not read image'))
+                return
+              }
+
+              resolve({ id: newId(), name: file.name, dataUrl: reader.result })
+            }
+            reader.onerror = () => reject(new Error('Could not read image'))
+            reader.readAsDataURL(file)
+          }),
+      ),
+    )
+
+    onUpdate((current) => ({
+      ...current,
+      images: [...current.images, ...items],
+    }))
+  }
+
+  return (
+    <section className="page-stack detail-stack">
+      <article className="panel detail-panel">
+        <div className="section-copy compact">
+          <h2>Idea name</h2>
+        </div>
+        <input value={idea.title} onChange={(event) => onUpdate((current) => ({ ...current, title: event.target.value }))} />
+
+        <div className="section-copy compact">
+          <h2>Short summary</h2>
+        </div>
+        <textarea
+          rows={3}
+          value={idea.summary}
+          onChange={(event) => onUpdate((current) => ({ ...current, summary: event.target.value }))}
+          placeholder="What is this idea about?"
+        />
+
+        <div className="section-copy compact">
+          <h2>Notes</h2>
+        </div>
+        <textarea
+          rows={6}
+          value={idea.notes}
+          onChange={(event) => onUpdate((current) => ({ ...current, notes: event.target.value }))}
+          placeholder="Write all your notes here"
+        />
+      </article>
+
+      <article className="panel detail-panel">
+        <div className="detail-header-row">
+          <div className="section-copy compact">
+            <h2>Elements</h2>
+            <p>Add your own pieces inside the idea.</p>
+          </div>
+          <button type="button" className="tiny-button" onClick={addElement}>
+            <Plus size={14} />
+            Add
           </button>
-          <button type="button" className="ghost-action" onClick={onMoveRight}>
-            <MoveRight size={16} />
-          </button>
+        </div>
+
+        <div className="element-list">
+          {idea.elements.length === 0 ? <p className="helper-text">No elements yet.</p> : null}
+          {idea.elements.map((element) => (
+            <div key={element.id} className="element-card">
+              <input
+                value={element.title}
+                onChange={(event) =>
+                  onUpdate((current) => ({
+                    ...current,
+                    elements: current.elements.map((item) =>
+                      item.id === element.id ? { ...item, title: event.target.value } : item,
+                    ),
+                  }))
+                }
+                placeholder="Element name"
+              />
+              <textarea
+                rows={3}
+                value={element.note}
+                onChange={(event) =>
+                  onUpdate((current) => ({
+                    ...current,
+                    elements: current.elements.map((item) =>
+                      item.id === element.id ? { ...item, note: event.target.value } : item,
+                    ),
+                  }))
+                }
+                placeholder="Element notes"
+              />
+              <button
+                type="button"
+                className="ghost-action danger align-self-end"
+                onClick={() =>
+                  onUpdate((current) => ({
+                    ...current,
+                    elements: current.elements.filter((item) => item.id !== element.id),
+                  }))
+                }
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
         </div>
       </article>
-    </div>
+
+      <article className="panel detail-panel">
+        <div className="detail-header-row">
+          <div className="section-copy compact">
+            <h2>Images</h2>
+            <p>Add images to this idea.</p>
+          </div>
+          <button type="button" className="tiny-button" onClick={() => imageInputRef.current?.click()}>
+            <ImagePlus size={14} />
+            Add image
+          </button>
+          <input
+            ref={imageInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden-input"
+            onChange={(event) => void handleImageFiles(event.target.files)}
+          />
+        </div>
+
+        {idea.images.length === 0 ? <p className="helper-text">No images yet.</p> : null}
+        <div className="image-grid">
+          {idea.images.map((image) => (
+            <div key={image.id} className="image-card">
+              <img src={image.dataUrl} alt={image.name} />
+              <div className="image-card-footer">
+                <span>{image.name}</span>
+                <button
+                  type="button"
+                  className="ghost-action danger"
+                  onClick={() =>
+                    onUpdate((current) => ({
+                      ...current,
+                      images: current.images.filter((item) => item.id !== image.id),
+                    }))
+                  }
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <article className="panel detail-panel detail-actions-panel">
+        <button type="button" className="small-button" onClick={onMove}>
+          {kind === 'ideas' ? 'Move to projects' : 'Move back to ideas'}
+        </button>
+        <button type="button" className="small-button danger-button" onClick={onDelete}>
+          Delete idea
+        </button>
+      </article>
+    </section>
   )
 }
 

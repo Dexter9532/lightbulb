@@ -24,8 +24,6 @@
 .topbar-copy p,
 .section-copy h2,
 .section-copy p,
-.hero-card h2,
-.hero-card p,
 .idea-copy h3,
 .idea-copy p {
   margin: 0;
@@ -50,7 +48,8 @@
 .primary-button,
 .theme-button,
 .small-button,
-.tiny-button {
+.tiny-button,
+.idea-card-simple {
   border: 0;
   cursor: pointer;
   font: inherit;
@@ -76,23 +75,15 @@
   gap: 16px;
 }
 
-.hero-card {
-  padding: 28px 22px;
-  text-align: center;
+.home-stack {
+  padding-top: 12px;
 }
 
-.hero-mark {
-  font-size: 2rem;
-  margin-bottom: 10px !important;
-}
-
-.hero-card h2 {
-  font-size: 2rem;
-  margin-bottom: 8px;
-}
-
-.hero-card p {
-  color: var(--muted);
+.home-bulb {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  color: var(--accent);
 }
 
 .home-grid {
@@ -124,7 +115,8 @@
 
 .composer-panel,
 .settings-panel,
-.empty-panel {
+.empty-panel,
+.detail-panel {
   padding: 18px;
 }
 
@@ -138,7 +130,9 @@
 .idea-copy p,
 .empty-panel,
 .helper-text,
-.update-meta-row span {
+.update-meta-row span,
+.idea-meta span,
+.image-card-footer span {
   color: var(--muted);
 }
 
@@ -180,7 +174,8 @@ select:focus {
   font-weight: 700;
 }
 
-.idea-list {
+.idea-list,
+.element-list {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -219,13 +214,15 @@ select:focus {
 .idea-card-simple {
   position: relative;
   z-index: 1;
+  width: 100%;
   padding: 18px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
   touch-action: pan-y;
-  transition: transform 0.18s ease;
+  background: var(--panel);
+  text-align: left;
 }
 
 .idea-copy {
@@ -242,10 +239,79 @@ select:focus {
   overflow-wrap: anywhere;
 }
 
-.idea-actions {
+.idea-meta {
+  display: flex;
+  gap: 12px;
+  margin-top: 10px;
+  font-size: 0.86rem;
+}
+
+.detail-stack {
+  padding-bottom: 8px;
+}
+
+.detail-header-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.element-card,
+.image-card {
+  border: 1px solid var(--border);
+  background: var(--soft);
+  border-radius: 20px;
+  padding: 14px;
+}
+
+.element-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.image-card img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 16px;
+  display: block;
+  background: var(--panel);
+}
+
+.image-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.image-card-footer span {
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.hidden-input {
+  display: none;
+}
+
+.align-self-end {
+  align-self: flex-end;
+}
+
+.detail-actions-panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .ghost-action {
@@ -254,11 +320,12 @@ select:focus {
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: var(--soft);
+  background: var(--panel);
   color: var(--text-strong);
 }
 
-.ghost-action.danger {
+.ghost-action.danger,
+.danger-button {
   color: var(--danger);
 }
 
@@ -361,6 +428,10 @@ select:focus {
   color: var(--text-strong);
 }
 
+.static-icon {
+  pointer-events: none;
+}
+
 @media (hover: hover) {
   .icon-button:hover,
   .ghost-action:hover,
@@ -369,7 +440,8 @@ select:focus {
   .primary-button:hover,
   .theme-button:hover,
   .small-button:hover,
-  .tiny-button:hover {
+  .tiny-button:hover,
+  .idea-card-simple:hover {
     transform: translateY(-1px);
   }
 }
@@ -379,44 +451,22 @@ select:focus {
     padding-inline: 14px;
   }
 
-  .home-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-card h2 {
-    font-size: 1.7rem;
-  }
-
-  .idea-card-simple {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .idea-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
+  .home-grid,
+  .image-grid,
+  .detail-actions-panel,
   .update-row {
     grid-template-columns: 1fr;
   }
 
+  .idea-card-simple,
+  .detail-header-row,
   .update-meta-row {
-    flex-direction: column;
     align-items: flex-start;
+    flex-direction: column;
   }
-}
 
-.static-icon {
-  pointer-events: none;
-}
-
-.hero-card {
-  display: grid;
-  place-items: center;
-  min-height: 180px;
-}
-
-.hero-card svg {
-  color: var(--accent);
+  .idea-meta {
+    flex-direction: column;
+    gap: 4px;
+  }
 }
