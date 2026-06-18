@@ -406,3 +406,17 @@ select:focus {
     align-items: flex-start;
   }
 }
+
+.static-icon {
+  pointer-events: none;
+}
+
+.hero-card {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+}
+
+.hero-card svg {
+  color: var(--accent);
+}

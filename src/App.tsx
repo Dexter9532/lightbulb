@@ -179,9 +179,9 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button type="button" className="icon-button" onClick={() => setPage('home')}>
+        <div className="icon-button static-icon">
           {page === 'home' ? <Lightbulb size={20} /> : <ArrowLeft size={20} />}
-        </button>
+        </div>
         <div className="topbar-copy">
           <p className="brand">Lightbulb</p>
           <h1>{page === 'home' ? 'Make ideas reality' : page[0].toUpperCase() + page.slice(1)}</h1>
@@ -319,11 +319,7 @@ function HomePage({
   return (
     <section className="page-stack">
       <article className="hero-card panel">
-        <p className="hero-mark">💡</p>
-        <h2>Make ideas reality</h2>
-        <p>
-          Catch ideas when they hit, keep them readable, and move the best ones into projects without turning the app into a mess.
-        </p>
+        <Lightbulb size={72} strokeWidth={1.8} />
       </article>
 
       <div className="home-grid">
