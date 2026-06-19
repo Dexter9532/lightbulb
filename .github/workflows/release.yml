@@ -35,24 +35,39 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Sync app version
+        run: npm run version:sync
+
+      - name: Decode signing keystore
+        shell: bash
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/lightbulb-release.jks
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
       - name: Build web app
         run: npm run build
 
       - name: Sync Capacitor Android project
         run: npx cap sync android
 
-      - name: Build debug APK
+      - name: Build signed release APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        env:
+          ANDROID_KEYSTORE_PATH: app/lightbulb-release.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: ./gradlew assembleRelease
 
       - name: Rename APK
         run: |
           TAG_NAME="${GITHUB_REF_NAME:-manual}"
-          cp android/app/build/outputs/apk/debug/app-debug.apk "lightbulb-${TAG_NAME}-debug.apk"
+          cp android/app/build/outputs/apk/release/app-release.apk "lightbulb-${TAG_NAME}.apk"
 
       - name: Create GitHub release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: lightbulb-*-debug.apk
+          files: lightbulb-*.apk
           generate_release_notes: true
