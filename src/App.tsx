@@ -546,6 +546,7 @@ function IdeaDetailPage({
 
     return [
       'You are helping me improve an idea inside the Lightbulb app.',
+      'Use the conversation we had about this idea, not just the pasted fields, and turn that conversation into a better structured idea.',
       'Lightbulb is a mobile app for turning ideas into projects.',
       'Each idea has a title, a short description, and a list of elements.',
       'An element can be anything important to the idea, like components, software, price, materials, or any other part.',
