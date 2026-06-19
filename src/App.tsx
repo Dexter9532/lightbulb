@@ -547,24 +547,25 @@ function IdeaDetailPage({
     return [
       'You are helping me improve an idea inside the Lightbulb app.',
       'Lightbulb is a mobile app for turning ideas into projects.',
-      'Each idea has a title, a short description, and a list of components.',
-      'Each component is a real part of the idea and must include notes.',
+      'Each idea has a title, a short description, and a list of elements.',
+      'An element can be anything important to the idea, like components, software, price, materials, or any other part.',
+      'Each element is a real part of the idea and should include notes.',
       'Improve the idea, organize it clearly, and return only the format below so the app can import it.',
       'Do not add extra headings or explanations.',
       '',
       'Title: ...',
       'Description: ...',
-      'Components:',
-      '- Component name',
+      'Elements:',
+      '- Element name',
       '  Notes: ...',
       '',
-      'If you need to improve the idea, rewrite the components to be more useful and original.',
+      'If you need to improve the idea, rewrite the elements to be more useful and original.',
       'Keep the format exact so the app can import it.',
       '',
       'Current idea:',
       `Title: ${idea.title}`,
       `Description: ${idea.summary || idea.notes || ''}`,
-      'Components:',
+      'Elements:',
       elementLines,
     ].join('\n')
   }
@@ -699,7 +700,7 @@ function IdeaDetailPage({
           rows={8}
           value={aiDraft}
           onChange={(event) => setAiDraft(event.target.value)}
-          placeholder={"Title: My idea\nDescription: What it does\nComponents:\n- Component name\n  Notes: what it does"}
+          placeholder={"Title: My idea\nDescription: What it does\nElements:\n- Element name\n  Notes: what it does"}
         />
 
         <div className="detail-actions-panel single-row-actions">
@@ -712,8 +713,8 @@ function IdeaDetailPage({
       <article className="panel detail-panel">
         <div className="detail-header-row">
           <div className="section-copy compact">
-            <h2>Components</h2>
-            <p>Each component is a named part of the idea with its own notes.</p>
+            <h2>Elements</h2>
+            <p>Each element is a named part of the idea with its own notes.</p>
           </div>
           <button type="button" className="tiny-button" onClick={addElement}>
             <Plus size={14} />
@@ -735,7 +736,7 @@ function IdeaDetailPage({
                     ),
                   }))
                 }
-                placeholder="Component name"
+                placeholder="Element name"
               />
               <textarea
                 rows={3}
@@ -748,7 +749,7 @@ function IdeaDetailPage({
                     ),
                   }))
                 }
-                placeholder="Component notes"
+                placeholder="Element notes"
               />
               <button
                 type="button"
