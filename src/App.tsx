@@ -204,6 +204,10 @@ function App() {
     }
   }
 
+  const openLatestRelease = () => {
+    window.open('https://github.com/Dexter9532/lightbulb/releases/latest', '_blank', 'noopener,noreferrer')
+  }
+
   const onBack = () => {
     if (detailTarget) {
       setDetailTarget(null)
@@ -325,18 +329,31 @@ function App() {
 
           <article className="panel settings-panel">
             <div className="section-copy compact">
-              <h2>Backup your data</h2>
+              <h2>How to update</h2>
               <p>Current version: {APP_VERSION}</p>
             </div>
+
+            <ol className="tutorial-steps">
+              <li>Export your backup first.</li>
+              <li>Press Update app to open the latest release on GitHub.</li>
+              <li>Install the new APK. If Android blocks it, delete the old app first.</li>
+              <li>Import your backup again after installing.</li>
+            </ol>
 
             <div className="update-row backup-row">
               <button type="button" className="small-button" onClick={exportBackup}>
                 <Download size={14} />
                 Export backup
               </button>
+              <button type="button" className="small-button" onClick={openLatestRelease}>
+                Update app
+              </button>
               <button type="button" className="small-button" onClick={() => importInputRef.current?.click()}>
                 <Upload size={14} />
                 Import backup
+              </button>
+              <button type="button" className="small-button" onClick={openLatestRelease}>
+                Go to GitHub latest
               </button>
               <input
                 ref={importInputRef}
@@ -348,7 +365,7 @@ function App() {
             </div>
 
             {backupMessage ? <p className="helper-text">{backupMessage}</p> : null}
-            <p className="helper-text">Before installing a newer APK, export a backup. After updating, you can import it again if needed.</p>
+            <p className="helper-text">Use the backup first. Then update, install the APK, and import the data again if Android makes you start over.</p>
           </article>
         </section>
       ) : null}

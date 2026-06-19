@@ -370,6 +370,14 @@ select:focus {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.tutorial-steps {
+  margin: 12px 0 14px;
+  padding-left: 20px;
+  color: var(--muted);
+  display: grid;
+  gap: 6px;
+}
+
 .small-button {
   min-height: 44px;
   padding: 0 16px;
