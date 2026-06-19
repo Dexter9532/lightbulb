@@ -541,8 +541,8 @@ function IdeaDetailPage({
 
   const buildAiTemplate = () => {
     const elementLines = idea.elements.length > 0
-      ? idea.elements.map((element) => `- ${element.title || 'Component name'}\n  Notes: ${element.note || 'Add notes here'}`).join('\n')
-      : '- Component name\n  Notes: Add notes here'
+      ? idea.elements.map((element) => `- ${element.title || 'Element name'}\n  Notes: ${element.note || 'Add notes here'}`).join('\n')
+      : '- Element name\n  Notes: Add notes here'
 
     return [
       'You are helping me improve an idea inside the Lightbulb app.',
@@ -591,6 +591,18 @@ function IdeaDetailPage({
         continue
       }
 
+      const inlineNotesMatch = trimmed.match(/^(.+?)\s+notes?:\s*(.+)$/i)
+      if (inlineNotesMatch) {
+        const next: IdeaElement = {
+          id: newId(),
+          title: inlineNotesMatch[1].trim(),
+          note: inlineNotesMatch[2].trim(),
+        }
+        result.push(next)
+        current = next
+        continue
+      }
+
       if (indented && current) {
         current.note = current.note ? `${current.note}\n${trimmed}` : trimmed
         continue
@@ -624,8 +636,8 @@ function IdeaDetailPage({
   }
 
   const importAiDraft = () => {
-    const titleMatch = aiDraft.match(/Title:\s*(.*)/i)
-    const descriptionMatch = aiDraft.match(/Description:\s*([\s\S]*?)(?:\n\s*(?:Elements|Components):|$)/i)
+    const titleMatch = aiDraft.match(/Title:\s*([\s\S]*?)(?:\s+Description:|\n\s*Description:|$)/i)
+    const descriptionMatch = aiDraft.match(/Description:\s*([\s\S]*?)(?:\s+Elements:|\s+Components:|\n\s*Elements:|\n\s*Components:|$)/i)
     const elementsBlockMatch = aiDraft.match(/(?:Elements|Components):\s*([\s\S]*)$/i)
 
     const parsedTitle = titleMatch?.[1]?.trim() ?? idea.title
