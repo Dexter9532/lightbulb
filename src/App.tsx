@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ArrowLeft, FolderKanban, Home, ImagePlus, Lightbulb, MoveLeft, MoveRight, Plus, RefreshCw, Settings, Trash2 } from 'lucide-react'
+import { ArrowLeft, Download, FolderKanban, Home, ImagePlus, Lightbulb, MoveLeft, MoveRight, Plus, Settings, Trash2, Upload } from 'lucide-react'
 import { APP_VERSION } from './version'
 import './App.css'
 
@@ -36,14 +36,6 @@ type AppState = {
   projects: Idea[]
 }
 
-type ReleaseOption = {
-  tag: string
-  name: string
-  apkUrl: string
-}
-
-const REPO_OWNER = 'Dexter9532'
-const REPO_NAME = 'lightbulb'
 const APP_STORAGE_KEY = 'lightbulb-simple-v4'
 const THEME_STORAGE_KEY = 'lightbulb-theme-v1'
 
@@ -103,10 +95,8 @@ function App() {
   const [ideaTitle, setIdeaTitle] = useState('')
   const [ideaSummary, setIdeaSummary] = useState('')
   const [detailTarget, setDetailTarget] = useState<{ kind: IdeaListKind; id: string } | null>(null)
-  const [releases, setReleases] = useState<ReleaseOption[]>([])
-  const [selectedTag, setSelectedTag] = useState('')
-  const [releaseStatus, setReleaseStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle')
-  const [releaseMessage, setReleaseMessage] = useState('')
+  const [backupMessage, setBackupMessage] = useState('')
+  const importInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     localStorage.setItem(APP_STORAGE_KEY, JSON.stringify(state))
@@ -117,63 +107,11 @@ function App() {
     document.documentElement.dataset.theme = themeMode
   }, [themeMode])
 
-  useEffect(() => {
-    void loadReleases()
-  }, [])
-
   const counts = useMemo(
     () => ({ ideas: state.ideas.length, projects: state.projects.length }),
     [state.ideas.length, state.projects.length],
   )
-
-  const selectedRelease = releases.find((release) => release.tag === selectedTag) ?? null
-  const latestRelease = releases[0] ?? null
   const detailIdea = detailTarget ? state[detailTarget.kind].find((idea) => idea.id === detailTarget.id) ?? null : null
-
-  async function loadReleases() {
-    setReleaseStatus('loading')
-    setReleaseMessage('')
-
-    try {
-      const response = await fetch(`https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases`)
-      if (!response.ok) {
-        throw new Error(`GitHub returned ${response.status}`)
-      }
-
-      const data = (await response.json()) as Array<{
-        tag_name: string
-        name: string | null
-        draft: boolean
-        prerelease: boolean
-        assets: Array<{ name: string; browser_download_url: string }>
-      }>
-
-      const nextReleases = data
-        .filter((release) => !release.draft && !release.prerelease)
-        .map((release) => {
-          const apkAsset = release.assets.find((asset) => asset.name.endsWith('.apk'))
-          if (!apkAsset) return null
-
-          return {
-            tag: release.tag_name,
-            name: release.name || release.tag_name,
-            apkUrl: apkAsset.browser_download_url,
-          } satisfies ReleaseOption
-        })
-        .filter((release): release is ReleaseOption => release !== null)
-
-      setReleases(nextReleases)
-      setSelectedTag((current) => current || nextReleases[0]?.tag || '')
-      setReleaseStatus('ready')
-
-      if (nextReleases.length === 0) {
-        setReleaseMessage('No APK releases found yet.')
-      }
-    } catch {
-      setReleaseStatus('error')
-      setReleaseMessage('Could not load releases right now.')
-    }
-  }
 
   const createIdea = () => {
     if (!ideaTitle.trim()) return
@@ -224,9 +162,46 @@ function App() {
     setDetailTarget({ kind: to, id: ideaId })
   }
 
-  const runUpdate = () => {
-    if (!selectedRelease) return
-    window.open(selectedRelease.apkUrl, '_blank', 'noopener,noreferrer')
+  const exportBackup = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      appVersion: APP_VERSION,
+      data: state,
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `lightbulb-backup-${new Date().toISOString().slice(0, 10)}.json`
+    anchor.click()
+    URL.revokeObjectURL(url)
+    setBackupMessage('Backup exported.')
+  }
+
+  const importBackup = async (file: File | null) => {
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text) as { data?: AppState } | AppState
+      const importedState: AppState =
+        typeof parsed === 'object' && parsed !== null && 'data' in parsed && parsed.data
+          ? parsed.data
+          : (parsed as AppState)
+
+      if (!importedState || !Array.isArray(importedState.ideas) || !Array.isArray(importedState.projects)) {
+        throw new Error('Invalid backup file')
+      }
+
+      setState({
+        ideas: sortIdeasByRating(importedState.ideas),
+        projects: sortIdeasByRating(importedState.projects),
+      })
+      setBackupMessage('Backup imported.')
+    } catch {
+      setBackupMessage('Could not import that backup file.')
+    }
   }
 
   const onBack = () => {
@@ -350,36 +325,30 @@ function App() {
 
           <article className="panel settings-panel">
             <div className="section-copy compact">
-              <h2>App update</h2>
+              <h2>Backup your data</h2>
               <p>Current version: {APP_VERSION}</p>
             </div>
 
-            <div className="update-row">
-              <select value={selectedTag} onChange={(event) => setSelectedTag(event.target.value)} disabled={releases.length === 0}>
-                {releases.length === 0 ? <option value="">No releases</option> : null}
-                {releases.map((release) => (
-                  <option key={release.tag} value={release.tag}>
-                    {release.tag}
-                  </option>
-                ))}
-              </select>
-              <button type="button" className="small-button" onClick={runUpdate} disabled={!selectedRelease}>
-                Update
+            <div className="update-row backup-row">
+              <button type="button" className="small-button" onClick={exportBackup}>
+                <Download size={14} />
+                Export backup
               </button>
+              <button type="button" className="small-button" onClick={() => importInputRef.current?.click()}>
+                <Upload size={14} />
+                Import backup
+              </button>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept="application/json"
+                className="hidden-input"
+                onChange={(event) => void importBackup(event.target.files?.[0] ?? null)}
+              />
             </div>
 
-            <div className="update-meta-row">
-              <button type="button" className="tiny-button" onClick={() => void loadReleases()}>
-                <RefreshCw size={14} />
-                Refresh
-              </button>
-              <span>Latest: {latestRelease?.tag ?? 'none'}</span>
-            </div>
-
-            {selectedRelease ? <p className="helper-text">Selected release: {selectedRelease.name}</p> : null}
-            {releaseStatus === 'loading' ? <p className="helper-text">Loading releases...</p> : null}
-            {releaseMessage ? <p className="helper-text">{releaseMessage}</p> : null}
-            <p className="helper-text">Updates should keep your app data. Uninstalling the app would remove local data.</p>
+            {backupMessage ? <p className="helper-text">{backupMessage}</p> : null}
+            <p className="helper-text">Before installing a newer APK, export a backup. After updating, you can import it again if needed.</p>
           </article>
         </section>
       ) : null}
