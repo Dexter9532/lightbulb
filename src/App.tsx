@@ -547,6 +547,44 @@ function IdeaDetailPage({
     return `Title: ${idea.title}\n\nDescription: ${idea.summary || idea.notes || ''}\n\nElements:\n${elementLines}`
   }
 
+  const parseAiElements = (input: string) => {
+    const lines = input
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    return lines
+      .map((line, index) => {
+        const cleaned = line.replace(/^[-*•]\s*/, '')
+        const withoutOpen = cleaned.startsWith('{') || cleaned.startsWith('[') ? cleaned.slice(1).trimStart() : cleaned
+        const final = withoutOpen.endsWith('}') || withoutOpen.endsWith(']') ? withoutOpen.slice(0, -1).trimEnd() : withoutOpen
+        const numberedMatch = final.match(/^(?:element\s*)?(\d+)[:.)-]\s*(.+)$/i)
+        const colonMatch = final.match(/^(.+?):\s*(.+)$/)
+
+        if (numberedMatch) {
+          return {
+            id: newId(),
+            title: numberedMatch[2].trim() || `Element ${numberedMatch[1]}`,
+            note: `Element ${numberedMatch[1]}`,
+          }
+        }
+
+        if (colonMatch) {
+          return {
+            id: newId(),
+            title: colonMatch[1].trim(),
+            note: colonMatch[2].trim(),
+          }
+        }
+
+        return {
+          id: newId(),
+          title: final,
+          note: `Element ${index + 1}`,
+        }
+      })
+  }
+
   const copyAiTemplate = async () => {
     const template = buildAiTemplate()
 
@@ -565,20 +603,13 @@ function IdeaDetailPage({
 
     const parsedTitle = titleMatch?.[1]?.trim() ?? idea.title
     const parsedDescription = descriptionMatch?.[1]?.trim() ?? idea.summary
-    const parsedElements = (elementsBlockMatch?.[1] ?? '')
-      .split('\n')
-      .map((line) => line.replace(/^[-*•]\s*/, '').trim())
-      .filter(Boolean)
+    const parsedElements = parseAiElements(elementsBlockMatch?.[1] ?? '')
 
     onUpdate((current) => ({
       ...current,
       title: parsedTitle,
       summary: parsedDescription,
-      elements: parsedElements.length > 0
-        ? parsedElements.map((title, index) => current.elements[index]
-          ? { ...current.elements[index], title: current.elements[index].title || title }
-          : { id: newId(), title, note: '' })
-        : current.elements,
+      elements: parsedElements.length > 0 ? parsedElements : current.elements,
     }))
   }
 
@@ -642,7 +673,7 @@ function IdeaDetailPage({
           rows={8}
           value={aiDraft}
           onChange={(event) => setAiDraft(event.target.value)}
-          placeholder={"Title:\n\nDescription:\n\nElements:\n- element one\n- element two"}
+          placeholder={"Title: My idea\n\nDescription: What it does\n\nElements:\n1. First element: what it means\n2. Second element: more detail"}
         />
 
         <div className="detail-actions-panel single-row-actions">
