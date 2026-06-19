@@ -541,48 +541,71 @@ function IdeaDetailPage({
 
   const buildAiTemplate = () => {
     const elementLines = idea.elements.length > 0
-      ? idea.elements.map((element) => `- ${element.title || 'Element name'}`).join('\n')
-      : '- '
+      ? idea.elements.map((element) => `- ${element.title || 'Component name'}\n  Notes: ${element.note || 'Add notes here'}`).join('\n')
+      : '- Component name\n  Notes: Add notes here'
 
-    return `Title: ${idea.title}\n\nDescription: ${idea.summary || idea.notes || ''}\n\nElements:\n${elementLines}`
+    return [
+      'You are helping me turn an idea into a better, clearer project note.',
+      'Improve the idea using the structure below.',
+      'Return the answer in exactly this format:',
+      '',
+      'Title: ...',
+      'Description: ...',
+      'Elements:',
+      '- Component name',
+      '  Notes: ...',
+      '',
+      'Make the idea more original, useful, and clear.',
+      'Do not add extra headings.',
+      '',
+      'Current idea:',
+      `Title: ${idea.title}`,
+      `Description: ${idea.summary || idea.notes || ''}`,
+      'Elements:',
+      elementLines,
+    ].join('\n')
   }
 
   const parseAiElements = (input: string) => {
-    const lines = input
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
+    const lines = input.split('\n')
+    const result: IdeaElement[] = []
+    let current: IdeaElement | null = null
 
-    return lines
-      .map((line, index) => {
-        const cleaned = line.replace(/^[-*•]\s*/, '')
-        const withoutOpen = cleaned.startsWith('{') || cleaned.startsWith('[') ? cleaned.slice(1).trimStart() : cleaned
-        const final = withoutOpen.endsWith('}') || withoutOpen.endsWith(']') ? withoutOpen.slice(0, -1).trimEnd() : withoutOpen
-        const numberedMatch = final.match(/^(?:element\s*)?(\d+)[:.)-]\s*(.+)$/i)
-        const colonMatch = final.match(/^(.+?):\s*(.+)$/)
+    for (const rawLine of lines) {
+      const line = rawLine.trimEnd()
+      const trimmed = line.trim()
+      if (!trimmed) continue
 
-        if (numberedMatch) {
-          return {
-            id: newId(),
-            title: numberedMatch[2].trim() || `Element ${numberedMatch[1]}`,
-            note: `Element ${numberedMatch[1]}`,
-          }
-        }
+      const elementMatch = trimmed.match(/^(?:[-*•]\s*)?(?:element\s*)?(?:component\s*)?(\d+)?[:.)-]?\s*(.+)$/i)
+      const notesMatch = trimmed.match(/^notes?:\s*(.+)$/i)
+      const indented = rawLine.startsWith(' ') || rawLine.startsWith('\t')
 
-        if (colonMatch) {
-          return {
-            id: newId(),
-            title: colonMatch[1].trim(),
-            note: colonMatch[2].trim(),
-          }
-        }
+      if (/^(title|description|elements):/i.test(trimmed)) continue
 
-        return {
+      if (notesMatch && current) {
+        current.note = current.note ? `${current.note}\n${notesMatch[1].trim()}` : notesMatch[1].trim()
+        continue
+      }
+
+      if (indented && current) {
+        current.note = current.note ? `${current.note}\n${trimmed}` : trimmed
+        continue
+      }
+
+      if (elementMatch) {
+        const maybeTitle = elementMatch[2].trim()
+        const next: IdeaElement = {
           id: newId(),
-          title: final,
-          note: `Element ${index + 1}`,
+          title: maybeTitle.replace(/^notes?:\s*/i, '').trim(),
+          note: '',
         }
-      })
+        result.push(next)
+        current = next
+        continue
+      }
+    }
+
+    return result
   }
 
   const copyAiTemplate = async () => {
@@ -661,8 +684,8 @@ function IdeaDetailPage({
       <article className="panel detail-panel">
         <div className="detail-header-row">
           <div className="section-copy compact">
-            <h2>AI helper</h2>
-            <p>Copy a clean template, talk to AI, then paste the result back here.</p>
+            <h2>AI prompt</h2>
+            <p>Copy a structured prompt that tells AI how to improve the idea.</p>
           </div>
           <button type="button" className="tiny-button" onClick={() => void copyAiTemplate()}>
             Copy template
@@ -673,7 +696,7 @@ function IdeaDetailPage({
           rows={8}
           value={aiDraft}
           onChange={(event) => setAiDraft(event.target.value)}
-          placeholder={"Title: My idea\n\nDescription: What it does\n\nElements:\n1. First element: what it means\n2. Second element: more detail"}
+          placeholder={"Title: My idea\nDescription: What it does\nElements:\n- Component name\n  Notes: what it does"}
         />
 
         <div className="detail-actions-panel single-row-actions">
@@ -686,8 +709,8 @@ function IdeaDetailPage({
       <article className="panel detail-panel">
         <div className="detail-header-row">
           <div className="section-copy compact">
-            <h2>Elements</h2>
-            <p>Add your own pieces inside the idea.</p>
+            <h2>Components</h2>
+            <p>Each component is a named part of the idea with its own notes.</p>
           </div>
           <button type="button" className="tiny-button" onClick={addElement}>
             <Plus size={14} />
@@ -709,7 +732,7 @@ function IdeaDetailPage({
                     ),
                   }))
                 }
-                placeholder="Element name"
+                placeholder="Component name"
               />
               <textarea
                 rows={3}
@@ -722,7 +745,7 @@ function IdeaDetailPage({
                     ),
                   }))
                 }
-                placeholder="Element notes"
+                placeholder="Component notes"
               />
               <button
                 type="button"
