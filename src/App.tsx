@@ -701,11 +701,11 @@ function IdeaDetailPage({
       <article className="panel detail-panel">
         <div className="detail-header-row">
           <div className="section-copy compact">
-            <h2>AI prompt</h2>
-            <p>Copy a structured prompt that tells AI how to improve the idea.</p>
+            <h2>AI answer</h2>
+            <p>Paste the AI result here after you copy the prompt and talk to the AI.</p>
           </div>
           <button type="button" className="tiny-button" onClick={() => void copyAiTemplate()}>
-            Copy template
+            Copy prompt
           </button>
         </div>
 
@@ -713,7 +713,7 @@ function IdeaDetailPage({
           rows={8}
           value={aiDraft}
           onChange={(event) => setAiDraft(event.target.value)}
-          placeholder={"Title: My idea\nDescription: What it does\nElements:\n- Element name\n  Notes: what it does"}
+          placeholder={"Paste AI answer here"}
         />
 
         <div className="detail-actions-panel single-row-actions">
