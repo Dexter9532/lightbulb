@@ -10,7 +10,7 @@ type IdeaListKind = 'ideas' | 'projects'
 type IdeaElement = {
   id: string
   title: string
-  note: string
+  notes: string[]
 }
 
 type IdeaImage = {
@@ -64,6 +64,17 @@ const createIdeaRecord = (title: string, summary: string): Idea => ({
   updatedAt: new Date().toISOString(),
 })
 
+const normalizeIdeaElement = (element: Partial<IdeaElement> & { id: string; title?: string; notes?: string[]; note?: string }): IdeaElement => ({
+  id: element.id,
+  title: element.title ?? '',
+  notes: element.notes ?? (element.note ? [element.note] : []),
+})
+
+const normalizeIdea = (idea: Idea): Idea => ({
+  ...idea,
+  elements: idea.elements.map((element) => normalizeIdeaElement(element as IdeaElement & { note?: string })),
+})
+
 const sortIdeasByRating = (ideas: Idea[]) =>
   [...ideas].sort((a, b) => {
     if (b.rating !== a.rating) return b.rating - a.rating
@@ -87,7 +98,11 @@ function App() {
     if (!saved) return emptyState()
 
     try {
-      return JSON.parse(saved) as AppState
+      const parsed = JSON.parse(saved) as AppState
+      return {
+        ideas: parsed.ideas.map(normalizeIdea),
+        projects: parsed.projects.map(normalizeIdea),
+      }
     } catch {
       return emptyState()
     }
@@ -507,7 +522,7 @@ function IdeaDetailPage({
   const addElement = () => {
     onUpdate((current) => ({
       ...current,
-      elements: [...current.elements, { id: newId(), title: '', note: '' }],
+      elements: [...current.elements, { id: newId(), title: '', notes: [] }],
     }))
   }
 
@@ -541,8 +556,11 @@ function IdeaDetailPage({
 
   const buildAiTemplate = () => {
     const elementLines = idea.elements.length > 0
-      ? idea.elements.map((element) => `- ${element.title || 'Element name'}\n  Notes: ${element.note || 'Add notes here'}`).join('\n')
-      : '- Element name\n  Notes: Add notes here'
+      ? idea.elements.map((element) => [
+        `- ${element.title || 'Element name'}`,
+        ...(element.notes.length > 0 ? element.notes.map((note) => `  - ${note}`) : ['  - Add notes here']),
+      ].join('\n')).join('\n')
+      : '- Element name\n  - Add notes here'
 
     return [
       'You are helping me improve an idea inside the Lightbulb app.',
@@ -550,7 +568,7 @@ function IdeaDetailPage({
       'Lightbulb is a mobile app for turning ideas into projects.',
       'Each idea has a title, a short description, and a list of elements.',
       'An element can be anything important to the idea, like components, software, price, materials, or any other part.',
-      'Each element is a real part of the idea and should include notes or sub-parts underneath it.',
+      'Each element is a real part of the idea and should include multiple notes or sub-parts underneath it.',
       'Examples of elements can be components, software, price, materials, or anything else important to the idea.',
       'Improve the idea, organize it clearly, and return only the format below so the app can import it.',
       'Do not add extra headings or explanations.',
@@ -559,9 +577,8 @@ function IdeaDetailPage({
       'Description: ...',
       'Elements:',
       '- Element name',
-      '  Notes:',
-      '  - sub-part 1',
-      '  - sub-part 2',
+      '  - note or sub-part 1',
+      '  - note or sub-part 2',
       '',
       'If you need to improve the idea, rewrite the elements to be more useful and original.',
       'Each element can have multiple notes or sub-parts underneath it.',
@@ -592,7 +609,7 @@ function IdeaDetailPage({
       if (/^(title|description|elements|components):/i.test(trimmed)) continue
 
       if (notesMatch && current) {
-        current.note = current.note ? `${current.note}\n${notesMatch[1].trim()}` : notesMatch[1].trim()
+        current.notes = [...current.notes, notesMatch[1].trim()]
         continue
       }
 
@@ -601,7 +618,7 @@ function IdeaDetailPage({
         const next: IdeaElement = {
           id: newId(),
           title: inlineNotesMatch[1].trim(),
-          note: inlineNotesMatch[2].trim(),
+          notes: [inlineNotesMatch[2].trim()],
         }
         result.push(next)
         current = next
@@ -609,7 +626,7 @@ function IdeaDetailPage({
       }
 
       if (indented && current) {
-        current.note = current.note ? `${current.note}\n${trimmed}` : trimmed
+        current.notes = [...current.notes, trimmed]
         continue
       }
 
@@ -618,7 +635,7 @@ function IdeaDetailPage({
         const next: IdeaElement = {
           id: newId(),
           title: maybeTitle.replace(/^notes?:\s*/i, '').trim(),
-          note: '',
+          notes: [],
         }
         result.push(next)
         current = next
@@ -634,9 +651,8 @@ function IdeaDetailPage({
 
     try {
       await navigator.clipboard.writeText(template)
-      setAiDraft(template)
     } catch {
-      setAiDraft(template)
+      // If clipboard is unavailable, keep the prompt hidden and do nothing visible.
     }
   }
 
@@ -755,19 +771,67 @@ function IdeaDetailPage({
                 }
                 placeholder="Element name"
               />
-              <textarea
-                rows={3}
-                value={element.note}
-                onChange={(event) =>
+              <div className="element-notes-list">
+                {element.notes.length === 0 ? <p className="helper-text">No notes yet.</p> : null}
+                {element.notes.map((note, noteIndex) => (
+                  <div key={`${element.id}-note-${noteIndex}`} className="element-note-row">
+                    <textarea
+                      rows={2}
+                      value={note}
+                      onChange={(event) =>
+                        onUpdate((current) => ({
+                          ...current,
+                          elements: current.elements.map((item) =>
+                            item.id === element.id
+                              ? {
+                                ...item,
+                                notes: item.notes.map((entry, entryIndex) =>
+                                  entryIndex === noteIndex ? event.target.value : entry,
+                                ),
+                              }
+                              : item,
+                          ),
+                        }))
+                      }
+                      placeholder="Element note"
+                    />
+                    <button
+                      type="button"
+                      className="ghost-action danger"
+                      onClick={() =>
+                        onUpdate((current) => ({
+                          ...current,
+                          elements: current.elements.map((item) =>
+                            item.id === element.id
+                              ? {
+                                ...item,
+                                notes: item.notes.filter((_, entryIndex) => entryIndex !== noteIndex),
+                              }
+                              : item,
+                          ),
+                        }))
+                      }
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="tiny-button"
+                onClick={() =>
                   onUpdate((current) => ({
                     ...current,
                     elements: current.elements.map((item) =>
-                      item.id === element.id ? { ...item, note: event.target.value } : item,
+                      item.id === element.id ? { ...item, notes: [...item.notes, ''] } : item,
                     ),
                   }))
                 }
-                placeholder="Element notes"
-              />
+              >
+                <Plus size={14} />
+                Add note
+              </button>
               <button
                 type="button"
                 className="ghost-action danger align-self-end"
