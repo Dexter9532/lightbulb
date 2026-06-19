@@ -516,6 +516,7 @@ function IdeaDetailPage({
   onDelete: () => void
 }) {
   const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const [aiDraft, setAiDraft] = useState('')
 
   const addElement = () => {
     onUpdate((current) => ({
@@ -549,6 +550,49 @@ function IdeaDetailPage({
     onUpdate((current) => ({
       ...current,
       images: [...current.images, ...items],
+    }))
+  }
+
+  const buildAiTemplate = () => {
+    const elementLines = idea.elements.length > 0
+      ? idea.elements.map((element) => `- ${element.title || 'Element name'}`).join('\n')
+      : '- '
+
+    return `Title: ${idea.title}\n\nDescription: ${idea.summary || idea.notes || ''}\n\nElements:\n${elementLines}`
+  }
+
+  const copyAiTemplate = async () => {
+    const template = buildAiTemplate()
+
+    try {
+      await navigator.clipboard.writeText(template)
+      setAiDraft(template)
+    } catch {
+      setAiDraft(template)
+    }
+  }
+
+  const importAiDraft = () => {
+    const titleMatch = aiDraft.match(/Title:\s*(.*)/i)
+    const descriptionMatch = aiDraft.match(/Description:\s*([\s\S]*?)(?:\n\s*Elements:|$)/i)
+    const elementsBlockMatch = aiDraft.match(/Elements:\s*([\s\S]*)$/i)
+
+    const parsedTitle = titleMatch?.[1]?.trim() ?? idea.title
+    const parsedDescription = descriptionMatch?.[1]?.trim() ?? idea.summary
+    const parsedElements = (elementsBlockMatch?.[1] ?? '')
+      .split('\n')
+      .map((line) => line.replace(/^[-*•]\s*/, '').trim())
+      .filter(Boolean)
+
+    onUpdate((current) => ({
+      ...current,
+      title: parsedTitle,
+      summary: parsedDescription,
+      elements: parsedElements.length > 0
+        ? parsedElements.map((title, index) => current.elements[index]
+          ? { ...current.elements[index], title: current.elements[index].title || title }
+          : { id: newId(), title, note: '' })
+        : current.elements,
     }))
   }
 
@@ -595,6 +639,31 @@ function IdeaDetailPage({
           onChange={(event) => onUpdate((current) => ({ ...current, notes: event.target.value }))}
           placeholder="Write all your notes here"
         />
+      </article>
+
+      <article className="panel detail-panel">
+        <div className="detail-header-row">
+          <div className="section-copy compact">
+            <h2>AI helper</h2>
+            <p>Copy a clean template, talk to AI, then paste the result back here.</p>
+          </div>
+          <button type="button" className="tiny-button" onClick={() => void copyAiTemplate()}>
+            Copy template
+          </button>
+        </div>
+
+        <textarea
+          rows={8}
+          value={aiDraft}
+          onChange={(event) => setAiDraft(event.target.value)}
+          placeholder={"Title:\n\nDescription:\n\nElements:\n- element one\n- element two"}
+        />
+
+        <div className="detail-actions-panel single-row-actions">
+          <button type="button" className="small-button" onClick={importAiDraft}>
+            Import AI result
+          </button>
+        </div>
       </article>
 
       <article className="panel detail-panel">

@@ -323,6 +323,11 @@ select:focus {
   gap: 12px;
 }
 
+.single-row-actions {
+  grid-template-columns: 1fr;
+  margin-top: 12px;
+}
+
 .ghost-action {
   width: 42px;
   height: 42px;
