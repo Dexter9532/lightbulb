@@ -545,23 +545,26 @@ function IdeaDetailPage({
       : '- Component name\n  Notes: Add notes here'
 
     return [
-      'You are helping me turn an idea into a better, clearer project note.',
-      'Improve the idea using the structure below.',
-      'Return the answer in exactly this format:',
+      'You are helping me improve an idea inside the Lightbulb app.',
+      'Lightbulb is a mobile app for turning ideas into projects.',
+      'Each idea has a title, a short description, and a list of components.',
+      'Each component is a real part of the idea and must include notes.',
+      'Improve the idea, organize it clearly, and return only the format below so the app can import it.',
+      'Do not add extra headings or explanations.',
       '',
       'Title: ...',
       'Description: ...',
-      'Elements:',
+      'Components:',
       '- Component name',
       '  Notes: ...',
       '',
-      'Make the idea more original, useful, and clear.',
-      'Do not add extra headings.',
+      'If you need to improve the idea, rewrite the components to be more useful and original.',
+      'Keep the format exact so the app can import it.',
       '',
       'Current idea:',
       `Title: ${idea.title}`,
       `Description: ${idea.summary || idea.notes || ''}`,
-      'Elements:',
+      'Components:',
       elementLines,
     ].join('\n')
   }
@@ -580,7 +583,7 @@ function IdeaDetailPage({
       const notesMatch = trimmed.match(/^notes?:\s*(.+)$/i)
       const indented = rawLine.startsWith(' ') || rawLine.startsWith('\t')
 
-      if (/^(title|description|elements):/i.test(trimmed)) continue
+      if (/^(title|description|elements|components):/i.test(trimmed)) continue
 
       if (notesMatch && current) {
         current.note = current.note ? `${current.note}\n${notesMatch[1].trim()}` : notesMatch[1].trim()
@@ -621,8 +624,8 @@ function IdeaDetailPage({
 
   const importAiDraft = () => {
     const titleMatch = aiDraft.match(/Title:\s*(.*)/i)
-    const descriptionMatch = aiDraft.match(/Description:\s*([\s\S]*?)(?:\n\s*Elements:|$)/i)
-    const elementsBlockMatch = aiDraft.match(/Elements:\s*([\s\S]*)$/i)
+    const descriptionMatch = aiDraft.match(/Description:\s*([\s\S]*?)(?:\n\s*(?:Elements|Components):|$)/i)
+    const elementsBlockMatch = aiDraft.match(/(?:Elements|Components):\s*([\s\S]*)$/i)
 
     const parsedTitle = titleMatch?.[1]?.trim() ?? idea.title
     const parsedDescription = descriptionMatch?.[1]?.trim() ?? idea.summary
@@ -696,7 +699,7 @@ function IdeaDetailPage({
           rows={8}
           value={aiDraft}
           onChange={(event) => setAiDraft(event.target.value)}
-          placeholder={"Title: My idea\nDescription: What it does\nElements:\n- Component name\n  Notes: what it does"}
+          placeholder={"Title: My idea\nDescription: What it does\nComponents:\n- Component name\n  Notes: what it does"}
         />
 
         <div className="detail-actions-panel single-row-actions">
