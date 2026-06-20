@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Capacitor } from '@capacitor/core'
+import { Directory, Encoding, Filesystem } from '@capacitor/filesystem'
+import { Share } from '@capacitor/share'
 import { ArrowLeft, Download, FolderKanban, Home, ImagePlus, Lightbulb, MoveLeft, MoveRight, Plus, Settings, Trash2, Upload } from 'lucide-react'
 import { APP_VERSION } from './version'
 import './App.css'
@@ -177,20 +180,42 @@ function App() {
     setDetailTarget({ kind: to, id: ideaId })
   }
 
-  const exportBackup = () => {
+  const exportBackup = async () => {
     const payload = {
       exportedAt: new Date().toISOString(),
       appVersion: APP_VERSION,
       data: state,
     }
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const payloadText = JSON.stringify(payload, null, 2)
+
+    if (Capacitor.isNativePlatform()) {
+      const fileName = `lightbulb-backup-${new Date().toISOString().slice(0, 10)}.json`
+      const written = await Filesystem.writeFile({
+        path: fileName,
+        data: payloadText,
+        directory: Directory.Cache,
+        encoding: Encoding.UTF8,
+      })
+
+      await Share.share({
+        title: 'Lightbulb backup',
+        text: 'Save this backup somewhere safe.',
+        files: [written.uri],
+        dialogTitle: 'Export backup',
+      })
+
+      setBackupMessage('Backup exported.')
+      return
+    }
+
+    const blob = new Blob([payloadText], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const anchor = document.createElement('a')
     anchor.href = url
     anchor.download = `lightbulb-backup-${new Date().toISOString().slice(0, 10)}.json`
     anchor.click()
-    URL.revokeObjectURL(url)
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
     setBackupMessage('Backup exported.')
   }
 
