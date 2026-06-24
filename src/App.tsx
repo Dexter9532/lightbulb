@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Capacitor } from '@capacitor/core'
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem'
 import { Share } from '@capacitor/share'
-import { ArrowLeft, Download, FolderKanban, Home, ImagePlus, Lightbulb, MoveLeft, MoveRight, Plus, Settings, Trash2, Upload } from 'lucide-react'
+import { ArrowLeft, Download, FolderKanban, Home, ImagePlus, Lightbulb, MoveLeft, MoveRight, Plus, Settings, Share2, Trash2, Upload } from 'lucide-react'
+import { jsPDF } from 'jspdf'
 import { APP_VERSION } from './version'
 import './App.css'
 
@@ -37,6 +38,13 @@ type Idea = {
 type AppState = {
   ideas: Idea[]
   projects: Idea[]
+}
+
+type SharedIdeaExport = {
+  kind: 'lightbulb-idea-export'
+  version: 1
+  exportedAt: string
+  idea: Idea
 }
 
 const APP_STORAGE_KEY = 'lightbulb-simple-v4'
@@ -77,6 +85,143 @@ const normalizeIdea = (idea: Idea): Idea => ({
   ...idea,
   elements: idea.elements.map((element) => normalizeIdeaElement(element as IdeaElement & { note?: string })),
 })
+
+const cloneIdea = (idea: Idea): Idea => ({
+  ...idea,
+  elements: idea.elements.map((element) => ({
+    ...element,
+    notes: [...element.notes],
+  })),
+  images: idea.images.map((image) => ({ ...image })),
+})
+
+const buildSharedIdeaExport = (idea: Idea): SharedIdeaExport => ({
+  kind: 'lightbulb-idea-export',
+  version: 1,
+  exportedAt: new Date().toISOString(),
+  idea: cloneIdea(idea),
+})
+
+const importIdeaCopy = (idea: Idea): Idea => ({
+  id: newId(),
+  title: idea.title.trim() || 'Imported idea',
+  summary: idea.summary?.trim() || '',
+  rating: Number.isFinite(idea.rating) ? Math.max(1, Math.min(10, Math.round(idea.rating))) : 5,
+  notes: idea.notes || '',
+  elements: idea.elements.map((element) => ({
+    id: newId(),
+    title: element.title.trim(),
+    notes: [...element.notes],
+  })),
+  images: idea.images.map((image) => ({
+    id: newId(),
+    name: image.name,
+    dataUrl: image.dataUrl,
+  })),
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+})
+
+const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
+
+const isIdeaLike = (value: unknown): value is Idea =>
+  isRecord(value) &&
+  typeof value.title === 'string' &&
+  typeof value.summary === 'string' &&
+  typeof value.notes === 'string' &&
+  typeof value.rating === 'number' &&
+  Array.isArray(value.elements) &&
+  Array.isArray(value.images)
+
+const ideaFileSlug = (text: string) =>
+  text
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40) || 'idea'
+
+const blobToBase64 = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') {
+        reject(new Error('Could not encode file'))
+        return
+      }
+
+      resolve(result.split(',')[1] ?? '')
+    }
+    reader.onerror = () => reject(new Error('Could not encode file'))
+    reader.readAsDataURL(blob)
+  })
+
+const downloadBlob = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  anchor.click()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+const createIdeaPdfBlob = (idea: Idea) => {
+  const doc = new jsPDF({ unit: 'pt', format: 'a4' })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 40
+  const maxWidth = pageWidth - margin * 2
+  const lineHeight = 16
+  let y = margin
+
+  const ensureSpace = (needed: number) => {
+    if (y + needed <= pageHeight - margin) return
+    doc.addPage()
+    y = margin
+  }
+
+  const addText = (text: string, opts: { bold?: boolean; size?: number; indent?: number } = {}) => {
+    const size = opts.size ?? (opts.bold ? 14 : 11)
+    doc.setFont('helvetica', opts.bold ? 'bold' : 'normal')
+    doc.setFontSize(size)
+    const indent = opts.indent ?? 0
+    const width = maxWidth - indent
+    const lines = doc.splitTextToSize(text, width) as string[]
+    ensureSpace(lines.length * lineHeight + 4)
+    doc.text(lines, margin + indent, y)
+    y += lines.length * lineHeight + 6
+  }
+
+  addText('Lightbulb idea export', { bold: true, size: 18 })
+  addText(idea.title, { bold: true, size: 16 })
+  if (idea.summary.trim()) addText(`Summary: ${idea.summary}`)
+  addText(`Rating: ${idea.rating}/10`)
+
+  if (idea.notes.trim()) {
+    addText('Notes', { bold: true, size: 13 })
+    addText(idea.notes)
+  }
+
+  if (idea.elements.length > 0) {
+    addText('Elements', { bold: true, size: 13 })
+    idea.elements.forEach((element, index) => {
+      addText(`${index + 1}. ${element.title || 'Element name'}`, { bold: true, indent: 10 })
+      if (element.notes.length > 0) {
+        element.notes.forEach((note) => addText(`- ${note}`, { indent: 24 }))
+      } else {
+        addText('- No notes', { indent: 24 })
+      }
+    })
+  }
+
+  if (idea.images.length > 0) {
+    addText('Images', { bold: true, size: 13 })
+    idea.images.forEach((image) => addText(`- ${image.name}`, { indent: 10 }))
+  }
+
+  return doc.output('blob') as Blob
+}
 
 const sortIdeasByRating = (ideas: Idea[]) =>
   [...ideas].sort((a, b) => {
@@ -224,19 +369,42 @@ function App() {
 
     try {
       const text = await file.text()
-      const parsed = JSON.parse(text) as { data?: AppState } | AppState
-      const importedState: AppState =
-        typeof parsed === 'object' && parsed !== null && 'data' in parsed && parsed.data
-          ? parsed.data
-          : (parsed as AppState)
+      const parsed: unknown = JSON.parse(text)
+
+      if (isRecord(parsed) && parsed.kind === 'lightbulb-idea-export' && isIdeaLike(parsed.idea)) {
+        const importedIdea = importIdeaCopy(normalizeIdea(parsed.idea))
+        setState((current) => ({
+          ...current,
+          ideas: sortIdeasByRating([importedIdea, ...current.ideas]),
+        }))
+        setBackupMessage('Idea imported.')
+        return
+      }
+
+      if (isIdeaLike(parsed)) {
+        const importedIdea = importIdeaCopy(normalizeIdea(parsed))
+        setState((current) => ({
+          ...current,
+          ideas: sortIdeasByRating([importedIdea, ...current.ideas]),
+        }))
+        setBackupMessage('Idea imported.')
+        return
+      }
+
+      const importedState: AppState | null =
+        isRecord(parsed) && 'data' in parsed && isRecord(parsed.data)
+          ? (parsed.data as AppState)
+          : isRecord(parsed)
+            ? (parsed as AppState)
+            : null
 
       if (!importedState || !Array.isArray(importedState.ideas) || !Array.isArray(importedState.projects)) {
         throw new Error('Invalid backup file')
       }
 
       setState({
-        ideas: sortIdeasByRating(importedState.ideas),
-        projects: sortIdeasByRating(importedState.projects),
+        ideas: sortIdeasByRating(importedState.ideas.map(normalizeIdea)),
+        projects: sortIdeasByRating(importedState.projects.map(normalizeIdea)),
       })
       setBackupMessage('Backup imported.')
     } catch {
@@ -377,7 +545,7 @@ function App() {
               <li>Export your backup first.</li>
               <li>Press Update app to open the latest release on GitHub.</li>
               <li>Install the new APK. If Android blocks it, delete the old app first.</li>
-              <li>Import your backup again after installing.</li>
+              <li>Import your backup or a shared idea again after installing.</li>
             </ol>
 
             <div className="update-row backup-row">
@@ -390,7 +558,7 @@ function App() {
               </button>
               <button type="button" className="small-button" onClick={() => importInputRef.current?.click()}>
                 <Upload size={14} />
-                Import backup
+                Import backup / idea
               </button>
               <button type="button" className="small-button" onClick={openLatestRelease}>
                 Go to GitHub latest
@@ -398,14 +566,14 @@ function App() {
               <input
                 ref={importInputRef}
                 type="file"
-                accept="application/json"
+                accept="application/json,.json"
                 className="hidden-input"
                 onChange={(event) => void importBackup(event.target.files?.[0] ?? null)}
               />
             </div>
 
             {backupMessage ? <p className="helper-text">{backupMessage}</p> : null}
-            <p className="helper-text">Use the backup first. Then update, install the APK, and import the data again if Android makes you start over.</p>
+            <p className="helper-text">Use the backup first. Then update, install the APK, and import the data again if Android makes you start over. Shared idea JSON files also import here.</p>
           </article>
         </section>
       ) : null}
@@ -543,6 +711,7 @@ function IdeaDetailPage({
 }) {
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const [aiDraft, setAiDraft] = useState('')
+  const [shareMessage, setShareMessage] = useState('')
 
   const addElement = () => {
     onUpdate((current) => ({
@@ -698,6 +867,48 @@ function IdeaDetailPage({
     }))
   }
 
+  const shareIdea = async () => {
+    setShareMessage('')
+
+    const exported = buildSharedIdeaExport(idea)
+    const jsonText = JSON.stringify(exported, null, 2)
+    const slug = ideaFileSlug(idea.title)
+    const jsonFileName = `lightbulb-idea-${slug}.json`
+    const pdfFileName = `lightbulb-idea-${slug}.pdf`
+    const pdfBlob = createIdeaPdfBlob(idea)
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        const jsonWritten = await Filesystem.writeFile({
+          path: jsonFileName,
+          data: jsonText,
+          directory: Directory.Cache,
+          encoding: Encoding.UTF8,
+        })
+        const pdfBase64 = await blobToBase64(pdfBlob)
+        const pdfWritten = await Filesystem.writeFile({
+          path: pdfFileName,
+          data: pdfBase64,
+          directory: Directory.Cache,
+        })
+
+        await Share.share({
+          title: `Share ${idea.title}`,
+          text: 'Shared from Lightbulb. The JSON file can be imported back into the app.',
+          files: [jsonWritten.uri, pdfWritten.uri],
+          dialogTitle: `Share ${idea.title}`,
+        })
+      } else {
+        downloadBlob(new Blob([jsonText], { type: 'application/json' }), jsonFileName)
+        downloadBlob(pdfBlob, pdfFileName)
+      }
+
+      setShareMessage('Share ready.')
+    } catch {
+      setShareMessage('Could not share this idea right now.')
+    }
+  }
+
   return (
     <section className="page-stack detail-stack">
       <article className="panel detail-panel">
@@ -766,6 +977,20 @@ function IdeaDetailPage({
             Import AI result
           </button>
         </div>
+      </article>
+
+      <article className="panel detail-panel">
+        <div className="detail-header-row">
+          <div className="section-copy compact">
+            <h2>Share idea</h2>
+            <p>Send a PDF for people and a JSON file you can import later.</p>
+          </div>
+          <button type="button" className="tiny-button" onClick={() => void shareIdea()}>
+            <Share2 size={14} />
+            Share idea
+          </button>
+        </div>
+        {shareMessage ? <p className="helper-text">{shareMessage}</p> : null}
       </article>
 
       <article className="panel detail-panel">
